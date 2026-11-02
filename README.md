@@ -73,6 +73,13 @@ deliberately **not** pre-configured — generating keys and setting up
 passwordless SSH (`ssh-keygen`, `ssh-copy-id`) is itself a good exam drill, so
 it's left for you to do inside the lab.
 
+## Troubleshooting without AI assistance
+
+See [`docs/troubleshooting-method.md`](docs/troubleshooting-method.md) for a
+general methodology (logs over summary errors, reading/tracing wrapper
+scripts, config-file auditing, isolating layers) plus a worked example —
+useful since the real exam gives you only man pages and the system itself.
+
 ## Suggested practice mapped to exam domains
 
 The LFCS exam covers five domains. Use the three nodes to practice the same
