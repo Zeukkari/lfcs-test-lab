@@ -5,14 +5,18 @@ A local Vagrant + VirtualBox lab for hands-on practice toward the
 
 The real exam lets you pick your distribution from **Ubuntu, openSUSE, or
 CentOS Stream** (any RHEL-family clone works the same way). This lab spins up
-one VM per family so you can practice the same task three different ways and
-stop relying on muscle memory from a single distro.
+VMs per family so you can practice the same task several different ways and
+stop relying on muscle memory from a single distro. There are extra `ubuntu2`
+and `rocky2` nodes for multi-node exercises (NFS/Samba client+server pairs,
+SSH trust, firewall rules between peers of the same family, etc.).
 
 | Node       | Box                       | Hostname        | IP             | Family           |
 |------------|---------------------------|------------------|----------------|------------------|
 | `ubuntu`   | bento/ubuntu-22.04        | ubuntu-lfcs      | 192.168.56.11  | Debian (apt)     |
 | `opensuse` | bento/opensuse-leap-15.6  | opensuse-lfcs    | 192.168.56.12  | SUSE (zypper)    |
 | `rocky`    | bento/rockylinux-9        | rocky-lfcs       | 192.168.56.13  | RHEL (dnf)       |
+| `ubuntu2`  | bento/ubuntu-22.04        | ubuntu2-lfcs     | 192.168.56.14  | Debian (apt)     |
+| `rocky2`   | bento/rockylinux-9        | rocky2-lfcs      | 192.168.56.15  | RHEL (dnf)       |
 
 Each VM has:
 
@@ -29,7 +33,7 @@ Each VM has:
 ## Requirements
 
 - [Vagrant](https://www.vagrantup.com/) and [VirtualBox](https://www.virtualbox.org/) installed.
-- A few GB of free RAM/CPU if running all three VMs at once (2 vCPU / 1.5 GiB
+- A good chunk of free RAM/CPU if running all five VMs at once (2 vCPU / 1.5 GiB
   each by default).
 
 ## Getting started
@@ -42,9 +46,11 @@ vagrant up
 vagrant up ubuntu
 vagrant up opensuse
 vagrant up rocky
+vagrant up ubuntu2
+vagrant up rocky2
 
 # log in
-vagrant ssh ubuntu     # (or opensuse / rocky)
+vagrant ssh ubuntu     # (or opensuse / rocky / ubuntu2 / rocky2)
 sudo -i                # same elevation pattern as the real exam
 
 # tear down
@@ -68,10 +74,10 @@ recreated from scratch after `destroy`.
 ### Networking between nodes
 
 The nodes resolve each other by hostname already (`ubuntu-lfcs`,
-`opensuse-lfcs`, `rocky-lfcs`) via `/etc/hosts`. SSH key trust between nodes is
-deliberately **not** pre-configured — generating keys and setting up
-passwordless SSH (`ssh-keygen`, `ssh-copy-id`) is itself a good exam drill, so
-it's left for you to do inside the lab.
+`opensuse-lfcs`, `rocky-lfcs`, `ubuntu2-lfcs`, `rocky2-lfcs`) via `/etc/hosts`.
+SSH key trust between nodes is deliberately **not** pre-configured —
+generating keys and setting up passwordless SSH (`ssh-keygen`, `ssh-copy-id`)
+is itself a good exam drill, so it's left for you to do inside the lab.
 
 ## Troubleshooting without AI assistance
 

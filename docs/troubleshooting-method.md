@@ -2,8 +2,9 @@
 
 General method for "a command/service fails mysteriously" tasks. Works for
 LDAP, systemd units, mounts, networking, users/PAM — basically anything on the
-exam. Two worked examples below (`ldapaddgroup` config bugs, then enabling
-`slapd` TLS) were diagnosed live using exactly these steps.
+exam. Three worked examples below (`ldapaddgroup` config bugs, enabling
+`slapd` TLS, and an intermittent SSH/PAM failure) were diagnosed live using
+exactly these steps.
 
 ## The core methodology
 
@@ -174,3 +175,62 @@ didn't exist yet, group membership not refreshed, and a service not
 restarted. When an edit "doesn't work," check whether the running process
 has actually picked up the new config before assuming the config itself is
 wrong.
+
+## Worked example: SSH password login fails intermittently on opensuse-lfcs
+
+Environment: same lab, `opensuse-lfcs` node, plain `ssh user@host` with a
+password (no LDAP involved this time).
+
+1. **Surface symptom**: password login to `localhost` "just doesn't work" —
+   no useful error from the client itself.
+2. **Real log** (`journalctl`, same principle as every example above): auth
+   actually *succeeded* — `Accepted keyboard-interactive/pam for <user>` —
+   immediately followed by `fatal: PAM: pam_setcred(): Permission denied`,
+   which drops the connection. So this wasn't a wrong-password problem at
+   all; something broke *after* a correct password was already accepted.
+3. Checked the obvious suspects first (and ruled them out one by one): group
+   membership (`id <user>`), `/etc/nsswitch.conf` source (`compat`, no
+   LDAP/SSSD involved), the PAM stack itself (`/etc/pam.d/sshd`,
+   `common-auth`/`common-account`/`common-session` — all stock), and a
+   missing `/etc/gshadow` (recreated it manually since `grpconv` wasn't even
+   installed — turned out to be a red herring, didn't fix anything).
+4. **`strace -f` on a one-off debug `sshd` instance** (`sudo /usr/sbin/sshd
+   -d -p <port>`) pinned down the exact moment: no `EACCES`/`EPERM` on the
+   process that actually logs the failure — the denial is a PAM-internal
+   decision, not an OS-level permission problem on a file. That ruled out
+   "just chmod something" as the fix.
+5. **The deciding experiment — isolate by forcing one variable at a time.**
+   Noticed the *first ever* successful password test earlier in this session
+   had used `-o PreferredAuthentications=password`, while every failing
+   attempt since had left the client free to pick its own method. Reran the
+   identical login twice, changing only that one option:
+   ```bash
+   ssh -o PreferredAuthentications=password         user@host   # works, every time
+   ssh -o PreferredAuthentications=keyboard-interactive user@host  # fails, every time
+   ```
+   That's a clean, controlled A/B test — one variable changed, result flips
+   consistently — which is as close to proof as you get without reading the
+   PAM module's source. Root cause confirmed: it's specifically the
+   `keyboard-interactive` method (a PAM "conversation") that breaks at
+   credential-establishment time on this box, not password auth itself.
+6. **Why this bit without ever touching `PreferredAuthentications`**: OpenSSH
+   clients try methods in this default order — `gssapi-with-mic, hostbased,
+   publickey, keyboard-interactive, password`. `keyboard-interactive` is
+   attempted *before* plain `password`, and the server offered it — so a
+   completely ordinary `ssh host` + type-your-password login was silently
+   going through the broken path the whole time, even though it looked
+   identical to a normal password login from the user's side.
+7. **Fix**: disable the broken method on the server so clients fall through
+   to the one that works:
+   ```bash
+   echo 'KbdInteractiveAuthentication no' | sudo tee /etc/ssh/sshd_config.d/99-disable-kbdint.conf
+   sudo sshd -t && sudo systemctl restart sshd
+   ```
+
+**Takeaway**: when two things *look* identical from the outside (a password
+prompt is a password prompt, right?) but behave differently, stop guessing
+and force each variant explicitly, one change at a time, until the result
+flips. `-o PreferredAuthentications=`, `-o PubkeyAuthentication=no`, `-Z` vs
+`ldaps://`, `TERM=x sudo ...` earlier in this doc — all the same move: pin
+every variable except one, and let the behavior itself tell you which one
+matters.

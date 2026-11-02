@@ -37,6 +37,18 @@ NODES = [
     ip:      '192.168.56.13',
     hostname: 'rocky-lfcs',
   },
+  {
+    name:    'ubuntu2',
+    box:     'bento/ubuntu-22.04',
+    ip:      '192.168.56.14',
+    hostname: 'ubuntu2-lfcs',
+  },
+  {
+    name:    'rocky2',
+    box:     'bento/rockylinux-9',
+    ip:      '192.168.56.15',
+    hostname: 'rocky2-lfcs',
+  },
 ]
 
 # Shared /etc/hosts entries so the nodes can reach each other by name.
