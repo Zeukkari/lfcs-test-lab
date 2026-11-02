@@ -2,8 +2,8 @@
 
 General method for "a command/service fails mysteriously" tasks. Works for
 LDAP, systemd units, mounts, networking, users/PAM — basically anything on the
-exam. Worked example below is a real `ldapaddgroup` failure diagnosed with
-these steps.
+exam. Two worked examples below (`ldapaddgroup` config bugs, then enabling
+`slapd` TLS) were diagnosed live using exactly these steps.
 
 ## The core methodology
 
@@ -122,3 +122,55 @@ hand (not part of the lab's baseline provisioning).
    ```
 8. After all three config fixes + password resync: `ldapaddgroup george`
    succeeded.
+
+## Worked example: enabling `ldaps://` for `slapd`, then `ldapwhoami -ZZ` over it fails
+
+Environment: same Ubuntu node, enabling TLS on `slapd` (self-signed CA +
+server cert via `certtool`, loaded into `cn=config`).
+
+1. **Config attributes added to `cn=config` pointed at files that didn't
+   exist yet** (`olcTLSCertificateFile`/`olcTLSCertificateKeyFile`). `slapd`
+   validates these paths live, so the modify failed with a generic
+   `ldap_modify: Other (e.g., implementation specific) error (80)`.
+   `journalctl -u slapd` showed the exact attribute names involved even
+   though the client-side error gave none. Fix: actually generate the
+   server key/cert with `certtool`, matching what the LDIF referenced.
+2. **Permissions** — `slapd` runs as the `openldap` user/group
+   (`cat /etc/default/slapd`), and `/etc/ssl/private` only grants the
+   `ssl-cert` group traverse access. Needed `chgrp openldap` on the key file
+   and `usermod -aG ssl-cert openldap`, then `systemctl restart slapd` —
+   group membership is only re-read at process start, so a running daemon
+   won't pick it up without a restart.
+3. **Enabled the `ldaps:///` listener** by adding it to `SLAPD_SERVICES` in
+   `/etc/default/slapd`. This file is only read at startup — editing it does
+   nothing to an already-running `slapd`. Caught by comparing
+   `systemctl status slapd`'s `Active: ... since <time>` against the time of
+   the edit, then confirming with `sudo ss -ltnp | grep slapd` that `636`
+   wasn't listening yet.
+4. **After restart, port 636 was listening**, but
+   `ldapwhoami -x -H ldaps://ldap01.example.com` still failed — turned out to
+   be the *client's* hostname, not the server: `ldap01.example.com` doesn't
+   resolve anywhere in this lab (same placeholder-hostname issue as the
+   first worked example). Using the real hostname (`ubuntu-lfcs`) got past
+   that.
+5. **Final failure**: `ldapwhoami -x -H ldaps://ubuntu-lfcs -ZZ` still errored
+   with `ldap_start_tls: Operations error (1), additional info: TLS already
+   started`. Root cause: `-Z`/`-ZZ` requests the **STARTTLS extended
+   operation** — upgrading an already-open plaintext connection to TLS
+   in-band. That only makes sense on `ldap://` (plaintext, port 389).
+   `ldaps://` (port 636) is **implicit TLS** — the handshake happens
+   immediately as part of connecting, so there's no plaintext phase left to
+   "start" TLS on. Asking for both at once is a contradiction, and the server
+   correctly refuses. Fix: use one encryption path per connection —
+   ```bash
+   ldapwhoami -x -H ldap://ubuntu-lfcs  -ZZ   # STARTTLS: upgrade in-band
+   ldapwhoami -x -H ldaps://ubuntu-lfcs       # implicit TLS: no -Z needed
+   ```
+
+**Takeaway beyond the specific fixes:** two config-file edits in this example
+(`cn=config` TLS attrs, `/etc/default/slapd`) looked instantly "wrong"
+superficially but were actually fine — the real issues were a file that
+didn't exist yet, group membership not refreshed, and a service not
+restarted. When an edit "doesn't work," check whether the running process
+has actually picked up the new config before assuming the config itself is
+wrong.
