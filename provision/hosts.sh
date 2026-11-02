@@ -7,9 +7,10 @@ ENTRIES="$1"
 MARKER_START="# >>> lfcs-lab hosts >>>"
 MARKER_END="# <<< lfcs-lab hosts <<<"
 
-if grep -qF "$MARKER_START" /etc/hosts 2>/dev/null; then
-  exit 0
-fi
+# Idempotent AND refreshable: strip any previous block (e.g. from before a
+# node was added to the Vagrantfile) before reinserting the current one, so
+# `vagrant provision` always leaves every node's /etc/hosts up to date.
+sed -i "/^${MARKER_START}$/,/^${MARKER_END}$/d" /etc/hosts
 
 {
   echo "$MARKER_START"
