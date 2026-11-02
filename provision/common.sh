@@ -48,7 +48,8 @@ case "$FAMILY" in
       parted lvm2 cryptsetup xfsprogs e2fsprogs \
       nfs-client nfs-kernel-server samba samba-client cifs-utils \
       firewalld \
-      chrony openssh unzip bzip2 >/dev/null || true
+      chrony openssh unzip bzip2 \
+      terminfo >/dev/null || true
     systemctl enable --now cron >/dev/null 2>&1 || true
     ;;
   *)
