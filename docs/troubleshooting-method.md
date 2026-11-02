@@ -2,9 +2,9 @@
 
 General method for "a command/service fails mysteriously" tasks. Works for
 LDAP, systemd units, mounts, networking, users/PAM — basically anything on the
-exam. Three worked examples below (`ldapaddgroup` config bugs, enabling
-`slapd` TLS, and an intermittent SSH/PAM failure) were diagnosed live using
-exactly these steps.
+exam. Four worked examples below (`ldapaddgroup` config bugs, enabling
+`slapd` TLS, an intermittent SSH/PAM failure, and a firewalld-blocked `nc`
+transfer) were diagnosed live using exactly these steps.
 
 ## The core methodology
 
@@ -234,3 +234,45 @@ flips. `-o PreferredAuthentications=`, `-o PubkeyAuthentication=no`, `-Z` vs
 `ldaps://`, `TERM=x sudo ...` earlier in this doc — all the same move: pin
 every variable except one, and let the behavior itself tell you which one
 matters.
+
+## Worked example: sending an SSH public key between nodes with raw `nc`
+
+Environment: `ubuntu-lfcs` → `ubuntu2-lfcs`, manually transplanting a public
+key into `authorized_keys` using only `nc`, without `ssh-copy-id`.
+
+1. **First gotcha**: `sudo nc -l -p 5000 >> /root/.ssh/authorized_keys` failed
+   with `Permission denied`, even run under `sudo`. Reason: shell redirection
+   (`>>`) is set up by the *invoking, unprivileged* shell before `sudo` ever
+   execs the command — only the command itself runs as root, not the
+   redirect target. Fix: push the whole pipeline (command *and* redirect)
+   inside `sudo bash -c '...'`, so root performs the redirection too. The
+   exact same trap applies to anything like `sudo echo foo > /protected/file`.
+2. **Second gotcha**: the key never arrived even once the redirection was
+   fixed — `nc -vN ubuntu2-lfcs 5000` reported `No route to host`, from the
+   *sender*. Ping to the same IP worked fine, ruling out basic L2/L3
+   connectivity. Direct-IP vs hostname gave the identical error, ruling out
+   DNS.
+3. **Root cause**: `firewalld` was `active`/`enabled` on the receiving node —
+   installed by the lab's own provisioning, and auto-started by the
+   distro's packaging the moment it was installed, with no action needed from
+   anyone. `sudo nft list ruleset` showed its default `public` zone only
+   explicitly allows `tcp dport 22`; everything else falls through to
+   `reject with icmpx admin-prohibited`. That specific ICMP rejection (as
+   opposed to a plain dropped packet, or a port-unreachable reject) is what
+   makes the *client's* TCP stack report "No route to host" instead of
+   "Connection refused" — worth recognizing as a signature, since it's easy
+   to mistake for a routing problem instead of a firewall one.
+4. **Fix**: open the port properly with the dedicated tool instead of
+   disabling the firewall —
+   ```bash
+   sudo firewall-cmd --add-port=5000/tcp      # before the transfer
+   sudo firewall-cmd --remove-port=5000/tcp   # after — don't leave it open
+   ```
+
+**Takeaway**: "No route to host" on a TCP connect, with ICMP ping to the same
+address working fine, almost always means something *between* you and the
+port — a firewall reject rule — not an actual routing failure. Check
+`firewall-cmd`/`nft list ruleset` before suspecting the network layer. And
+remember that installing a firewall package on Debian/Ubuntu commonly
+enables and starts it immediately — "I didn't configure a firewall" doesn't
+mean one isn't running.
