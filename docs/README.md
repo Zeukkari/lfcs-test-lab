@@ -13,7 +13,7 @@ building exam-day speed.
 | --- | --- |
 | [`README.md`](../README.md) | The Vagrant/VirtualBox lab: 5 VMs across all three exam distro families |
 | [`docs/notes/`](notes/) | Study notes organized by the five exam domains |
-| [`docs/exam/`](exam/) | [Strategy and logistics](exam/strategy-and-logistics.md), [practice labs and resources](exam/practice-resources.md) |
+| [`docs/exam/`](exam/) | [Strategy and logistics](exam/strategy-and-logistics.md), [practice labs and resources](exam/practice-resources.md), [30 original practice scenarios](exam/practice-scenarios.md) mapped to this lab's own nodes |
 | [`docs/lab/`](lab/) | [Learning log](lab/learning-log.md) (everything built/broken/learned in the lab) and the [no-AI troubleshooting method](lab/troubleshooting-method.md) with worked examples |
 
 Study loop: pick a competency below → read/write the note → drill it in

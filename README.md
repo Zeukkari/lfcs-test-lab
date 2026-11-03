@@ -16,6 +16,7 @@ SSH trust, firewall rules between peers of the same family, etc.).
 [Notes by domain](docs/notes/) ·
 [Exam strategy](docs/exam/strategy-and-logistics.md) ·
 [Practice resources](docs/exam/practice-resources.md) ·
+[Practice scenarios](docs/exam/practice-scenarios.md) ·
 [Lab journal](docs/lab/)
 
 | Node       | Box                       | Hostname        | IP             | Family           |
@@ -57,6 +58,10 @@ Each VM has:
 - [Vagrant](https://www.vagrantup.com/) and [VirtualBox](https://www.virtualbox.org/) installed.
 - A good chunk of free RAM/CPU if running all five VMs at once (2 vCPU / 1.5 GiB
   each by default).
+- Works on Apple Silicon Macs too (native arm64 guests, no x86 translation) —
+  the Vagrantfile auto-detects the host architecture for storage controller
+  naming; see "Networking between nodes" below for the networking approach
+  (used on every platform, not just Apple Silicon).
 
 ## Getting started
 
@@ -100,6 +105,14 @@ The nodes resolve each other by hostname already (`ubuntu-lfcs`,
 SSH key trust between nodes is deliberately **not** pre-configured —
 generating keys and setting up passwordless SSH (`ssh-keygen`, `ssh-copy-id`)
 is itself a good exam drill, so it's left for you to do inside the lab.
+
+Inter-node connectivity uses a VirtualBox **NAT Network** rather than a
+host-only adapter, on every host platform. Host-only needs a host-level
+network driver (a macOS system-extension approval, blocked outright on some
+managed/MDM Macs) that NAT Network doesn't need at all — it's a
+fully software-defined switch inside VirtualBox itself. Verified end-to-end
+(cross-node ping/SSH, full provisioning) on a Jamf-managed,
+system-extension-restricted Apple Silicon Mac.
 
 ## Troubleshooting without AI assistance
 
@@ -161,9 +174,11 @@ differences stop tripping you up.
 ## Troubleshooting
 
 - **`storageattach` fails / controller not found**: some custom boxes name
-  their VirtualBox storage controller differently. Run
-  `VBoxManage showvminfo lfcs-<node> | grep Controller` and adjust the
-  `--storagectl` name in `Vagrantfile` if it isn't `SATA Controller`.
+  their VirtualBox storage controller differently. The Vagrantfile already
+  auto-selects `VirtIO Controller` vs `SATA Controller` based on host
+  architecture (verified on Apple Silicon); if a future box build changes
+  this, run `VBoxManage showvminfo lfcs-<node> | grep Controller` and adjust
+  `STORAGE_CONTROLLER` in `Vagrantfile`.
 - **Low RAM host**: lower `LFCS_MEM`/`LFCS_CPUS`, or only bring up one node at
   a time instead of all three.
 - **Box download is slow**: boxes are large cloud images; run `vagrant up`
