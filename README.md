@@ -81,20 +81,45 @@ is itself a good exam drill, so it's left for you to do inside the lab.
 
 ## Troubleshooting without AI assistance
 
-See [`docs/troubleshooting-method.md`](docs/troubleshooting-method.md) for a
-general methodology (logs over summary errors, reading/tracing wrapper
-scripts, config-file auditing, isolating layers) plus a worked example —
+See [`docs/lab/troubleshooting-method.md`](docs/lab/troubleshooting-method.md)
+for a general methodology (logs over summary errors, reading/tracing wrapper
+scripts, config-file auditing, isolating layers) plus worked examples —
 useful since the real exam gives you only man pages and the system itself.
 
-See [`docs/session-learning-log.md`](docs/session-learning-log.md) for the
+See [`docs/lab/learning-log.md`](docs/lab/learning-log.md) for the
 full chronological learning log: everything built in this lab so far (LDAP
 server/TLS/replication, SSH/PAM debugging, nc patterns, firewalld lessons,
 certificate trust stores) plus the pending centralized-user-management plan.
 
+## Study documentation
+
+The lab is only half of this repo — [`docs/`](docs/) holds the study
+material, organized to follow the exam:
+
+- [`docs/study-guide.md`](docs/study-guide.md) — **start here**: exam
+  facts, domain weighting, and a per-competency checklist linking every
+  note below.
+- [`docs/notes/`](docs/notes/) — study notes per exam domain:
+  [essential-commands](docs/notes/essential-commands/),
+  [networking](docs/notes/networking/),
+  [operations-deployment](docs/notes/operations-deployment/),
+  [storage](docs/notes/storage/),
+  [users-and-groups](docs/notes/users-and-groups/).
+- [`docs/exam/`](docs/exam/) —
+  [strategy and logistics](docs/exam/strategy-and-logistics.md) (exam
+  environment mechanics, console quirks, Mac client, time strategy,
+  exam-day checklist) and
+  [practice resources](docs/exam/practice-resources.md) (evaluated
+  simulators and courses).
+- [`docs/lab/`](docs/lab/) — the learning log and troubleshooting
+  method above.
+
 ## Suggested practice mapped to exam domains
 
-The LFCS exam covers five domains. Use the three nodes to practice the same
-task across apt/dnf/zypper until the differences stop tripping you up.
+The LFCS exam covers five domains (weights and the full competency
+checklist are in [`docs/study-guide.md`](docs/study-guide.md)). Use the
+nodes to practice the same task across apt/dnf/zypper until the
+differences stop tripping you up.
 
 - **Essential Commands** — file permissions/ACLs, `tar`/`gzip`, `grep`/`sed`/`awk`,
   process management, `systemd` units/timers, job control, `find`/`xargs`.
