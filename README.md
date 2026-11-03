@@ -86,6 +86,11 @@ general methodology (logs over summary errors, reading/tracing wrapper
 scripts, config-file auditing, isolating layers) plus a worked example —
 useful since the real exam gives you only man pages and the system itself.
 
+See [`docs/session-learning-log.md`](docs/session-learning-log.md) for the
+full chronological learning log: everything built in this lab so far (LDAP
+server/TLS/replication, SSH/PAM debugging, nc patterns, firewalld lessons,
+certificate trust stores) plus the pending centralized-user-management plan.
+
 ## Suggested practice mapped to exam domains
 
 The LFCS exam covers five domains. Use the three nodes to practice the same
