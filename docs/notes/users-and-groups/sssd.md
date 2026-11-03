@@ -7,6 +7,12 @@ unreachable (offline auth). Default choice on RHEL-family systems; the
 exam is distro-agnostic, so know both (nslcd config is in
 [ldap.md](ldap.md)).
 
+See also the lab's
+[centralized-auth setup guide](../../lab/openldap-centralized-auth-setup.md)
+for a real multi-distro SSSD build (including the `sssd.conf` inline-comment
+trap and per-distro `ldap_tls_cacert` paths) and
+[learning log](../../lab/learning-log.md) for the full diagnosis.
+
 ## Install
 
 ```bash

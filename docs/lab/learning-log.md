@@ -276,33 +276,104 @@ loopback tests bypass the problem entirely.
 
 ---
 
-## 8. Centralized user management — the plan (phases 3–7 pending)
+## 8. Centralized user management — SSSD, built and verified on three clients
 
 Decision made: **SSSD everywhere** (works identically on all three families;
-`nslcd` is Debian-only). Clients: rocky, rocky2, ubuntu2.
+`nslcd` is Debian-only). Clients configured: `rocky`, `rocky2`, `ubuntu2`.
 
-Pending phases:
-3. Distribute + trust `mycacert.pem` on each client (see §7 table).
-4. `sssd.conf` (same content all distros): `id_provider = ldap`,
+What was actually done:
+3. Distributed + trusted `mycacert.pem`/`.crt` on each client (see §7 table
+   for the distro-specific anchor dirs/commands).
+4. `sssd.conf` on each: `id_provider = ldap`,
    `ldap_uri = ldap://ubuntu-lfcs, ldap://ubuntu2-lfcs` (replication = real
    failover), `ldap_search_base = dc=example,dc=com`,
-   `ldap_id_use_start_tls = true`, `ldap_tls_reqcert = demand`.
-   **Must be root-owned mode 0600 or sssd refuses to start.**
+   `ldap_id_use_start_tls = true`, `ldap_tls_reqcert = demand`. Root-owned
+   mode 0600 (confirmed required — sssd just needs the file to exist and be
+   syntactically valid to start; the *backend* going offline, below, is a
+   separate, later-stage failure).
 5. NSS/PAM wiring differs by family: `authselect select sssd with-mkhomedir`
-   (Rocky) vs `pam-auth-update` (Ubuntu).
-6. Test NSS first (`id john`, `getent passwd john`), then PAM
-   (`ssh john@client`) — separate failure domains, test in that order.
-7. Optional: `ldap_access_filter` — without it, *every* directory user can
-   log into every client.
+   (Rocky) vs `pam-auth-update` (Ubuntu) — both applied.
+6. Tested NSS first (`id john`, `getent passwd john`), confirmed working on
+   all three nodes after the fix below.
+7. **Not yet done**: `ldap_access_filter` restriction — right now every
+   directory user can log into every client. Deliberately deferred, not
+   forgotten.
 
-Known environment facts for this phase (checked in advance):
-- SELinux on rocky/rocky2: **Enforcing**; relevant booleans off. Expected
-  workflow: let it fail → `ausearch -m avc -ts recent` → `audit2why` → act on
-  the *actual* denial rather than pre-toggling booleans.
+### The bug: `id john` returned nothing on all three clients
+
+`systemctl is-active sssd` said `active` everywhere — the daemon was *up*,
+just non-functional. `journalctl -u sssd` on each showed the real story:
+```
+sssd_be: Could not start TLS encryption.
+sssd_be: Backend is offline
+sssd.dataprovider.getAccountInfo: Error: SSSD is offline
+```
+i.e. `id`/`getent` weren't failing to find `john` — they were failing to ask
+*at all*, because the backend couldn't even connect.
+
+**Root cause — a config-file comment that wasn't a comment.** The example
+`sssd.conf` handed over for copy-paste had included an inline advisory note
+on the same line as a value:
+```
+ldap_tls_cacert = /etc/ssl/certs/mycacert.pem   # path will differ per distro trust store, verify it
+```
+`sssd.conf` is an INI-style file parsed by `libini_config`, which — unlike
+shell or Python — **does not support trailing comments after a value on the
+same line**. Only whole lines starting with `#`/`;` are comments. The
+*entire remaining string, comment included*, became the literal value of
+`ldap_tls_cacert`. Confirmed directly:
+```bash
+sudo grep -n ldap_tls_cacert /etc/sssd/sssd.conf | cat -A
+# ldap_tls_cacert = /etc/ssl/certs/mycacert.pem   # path will differ per distro trust store, verify it$
+```
+That string is obviously not a valid file path on any system — hence "Could
+not start TLS encryption" identically on all three nodes, even on `ubuntu2`
+where the *base* path (before the comment got glued on) was actually
+correct.
+
+**Second, independent issue on Rocky/Rocky2**: even with the comment
+stripped, `/etc/ssl/certs/mycacert.pem` is a *Debian* convention path — it
+genuinely doesn't exist on Rocky. `update-ca-trust extract` had correctly
+run and the CA *was* trusted system-wide (verified:
+`grep 'Example Company' /etc/pki/tls/certs/ca-bundle.crt` found it), but
+`sssd.conf`'s `ldap_tls_cacert` still needs an explicit, *correct-for-this-
+distro* path — trusting a CA system-wide doesn't automatically mean every
+app config that hardcodes a cert path will find it. Fixed by pointing at
+Rocky's actual system bundle: `/etc/pki/tls/certs/ca-bundle.crt`.
+
+**Fix (all three nodes):**
+```bash
+# ubuntu2 — just strip the bogus comment, path itself was right:
+sudo sed -i 's|ldap_tls_cacert = .*|ldap_tls_cacert = /etc/ssl/certs/mycacert.pem|' /etc/sssd/sssd.conf
+# rocky / rocky2 — also needed the distro-correct bundle path:
+sudo sed -i 's|ldap_tls_cacert = .*|ldap_tls_cacert = /etc/pki/tls/certs/ca-bundle.crt|' /etc/sssd/sssd.conf
+sudo systemctl restart sssd
+```
+After the fix, `journalctl -u sssd` showed clean startup with no TLS/offline
+errors, and `id john` / `getent passwd john` resolved correctly
+(`uid=10000(john) gid=5000(miners) ...`) on all three clients.
+
+**Useful diagnostic discovered along the way**: manually reproducing exactly
+what the backend needs (`ldapwhoami -x -ZZ -H ldap://<uri>`) succeeded the
+whole time on the affected nodes — proof the problem was specifically in
+*sssd's own config*, not connectivity/firewall/cert-trust in general. When a
+purpose-built daemon fails but the equivalent manual command succeeds,
+suspect the daemon's own config file next, not the underlying service.
+
+Known environment facts checked in advance of this phase (still relevant,
+kept for reference):
+- SELinux on rocky/rocky2: **Enforcing**; LDAP/SSSD-related booleans are off
+  by default (`authlogin_nsswitch_use_ldap`, `sssd_connect_all_unreserved_ports`).
+  Neither turned out to be needed here — SSSD's own confined domain handled
+  the LDAP networking fine once the config itself was correct. Expected
+  workflow if something *does* get denied: `ausearch -m avc -ts recent` →
+  `audit2why` → act on the actual denial, not a pre-emptive guess.
 - AppArmor: active+enforcing on Ubuntu nodes (slapd profile already covers
-  `/etc/ldap/**` and standard ssl abstractions); on opensuse the kernel
-  module is enabled but the service is inactive and `/etc/apparmor.d` doesn't
-  exist — install/enable before practicing there.
+  `/etc/ldap/**` and standard ssl abstractions; `sssd` processes run
+  unconfined — confirmed via `aa-status`, no profile applied, so it was never
+  a suspect here). On opensuse the kernel module is enabled but the service
+  is inactive and `/etc/apparmor.d` doesn't exist — install/enable before
+  practicing there.
 - ACLs (`setfacl`/`getfacl`) work out of the box on ubuntu and rocky.
 
 ---

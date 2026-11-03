@@ -7,7 +7,9 @@ Related: [sssd.md](sssd.md) (modern client daemon),
 [nss-pam.md](nss-pam.md) (lookup vs login wiring), and the lab's
 [`ldapaddgroup` worked example](../../lab/troubleshooting-method.md)
 plus [OpenLDAP server build log](../../lab/learning-log.md) (TLS,
-replication, ldapscripts debugging).
+replication, ldapscripts debugging), and the consolidated
+[centralized-auth setup guide](../../lab/openldap-centralized-auth-setup.md)
+(clean step-by-step build + full gotchas reference table).
 
 ## Server side (node holding the directory): add a posixAccount entry
 
