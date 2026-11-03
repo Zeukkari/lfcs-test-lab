@@ -160,3 +160,41 @@ localize where a genuine persistent-loss pattern begins.
 - `traceroute` — one-shot path discovery (UDP default, `-I` ICMP, `-T` TCP)
 - `tracepath` — no root needed, also discovers path MTU; more often
   preinstalled on minimal systems than traceroute
+
+## Persistent static routes + hostname resolution
+
+Not research-backed — standard stable behavior; verify on the lab VMs
+before ticking the checklist. Static routes that survive reboot:
+
+```bash
+# rpm — nmcli (+ipv4.routes appends, bare ipv4.routes replaces)
+nmcli con mod static-eth1 +ipv4.routes "10.0.0.0/8 192.168.56.1"
+nmcli con up static-eth1
+```
+
+```yaml
+# deb — /etc/netplan/*.yaml under the interface; netplan try / apply
+      routes:
+        - to: 10.0.0.0/8
+          via: 192.168.56.1
+```
+
+```bash
+# suse (wicked, low exam ROI) — dest gw netmask iface; apply: wicked ifup eth1
+echo "10.0.0.0/8 192.168.56.1 - eth1" >> /etc/sysconfig/network/ifroute-eth1
+```
+
+**Trap:** `ip route add` is runtime-only — a grader reboot erases it.
+Verify fresh after reboot: `ip route` lists it, `ip route get 10.0.0.5` uses it.
+
+### Hostname resolution essentials
+
+```bash
+hostnamectl set-hostname node1.example.com   # persists (/etc/hostname)
+getent hosts node2            # resolve exactly as libc/NSS would
+resolvectl status             # per-link DNS; resolvectl query X tests live
+```
+
+- `/etc/hosts`: `192.168.56.12 node2.example.com node2` — canonical name first, aliases after; first match wins.
+- `/etc/nsswitch.conf` `hosts:` line = lookup order (`files dns` → /etc/hosts beats DNS).
+- Reboot check: `hostnamectl` + `getent hosts node2` — both file-backed.

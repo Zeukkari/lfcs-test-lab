@@ -59,3 +59,23 @@ restorecon -Rv /path                 # apply contexts from policy (after semanag
 `chcon` is a quick one-off change; it does not survive `restorecon` or a
 full relabel. For persistent context changes, always use `semanage
 fcontext -a` followed by `restorecon` to apply it.
+
+## AppArmor hedge (Ubuntu)
+
+The official competency names SELinux only; benchmark simulators still
+carry a few Ubuntu AppArmor tasks (research Q4) — cheap to know.
+**[UNCERTAIN]** whether the current exam tests AppArmor at all.
+
+AppArmor is the default-enabled MAC on Ubuntu. Profiles live in
+/etc/apparmor.d/ (file names mirror the confined binary's path, e.g.
+`usr.sbin.nginx` — verify in lab).
+
+```
+aa-status                                    # loaded profiles, enforce vs complain counts
+aa-complain /etc/apparmor.d/usr.sbin.nginx   # switch profile to complain (log-only)
+aa-enforce /etc/apparmor.d/usr.sbin.nginx    # back to enforce
+```
+
+The aa-* tools ship separately from the base system (Ubuntu package
+`apparmor-utils` — verify in lab). Verify a mode change took effect
+with a fresh `aa-status` and recheck after reboot.

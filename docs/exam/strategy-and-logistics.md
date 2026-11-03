@@ -14,6 +14,12 @@ Sourced from the official
   environment (i.e., it kills it).
 - The SSH hosts have vim, nano, emacs, git, sudo preinstalled; **base
   has none of these** — all real work happens on the task hosts.
+- **Platform signal**: the official instructions name only **apt, dpkg,
+  dnf, and yum** as the package managers to be familiar with — zypper
+  is absent. Expect Debian-family and RHEL-family task hosts; the lab's
+  openSUSE node is three-family breadth/pedagogy with low exam ROI.
+  Community consensus points to Ubuntu-based hosts **[UNCERTAIN]** — no
+  primary source names a distro or version.
 - Root: `sudo -i` works on any host.
 - **Do not touch the `certerminal` process** — killing it ends the exam.
 - **Do not block TCP ports 8080, 4505, 4506** — these are the exam
@@ -79,6 +85,10 @@ browser). Consequences:
 
 - 17-20 tasks in 120 min ≈ 6-7 min average. Pass is 67% — you can
   afford to drop roughly a third of the points, so **never rathole**.
+- **Partial scoring is confirmed** (killer.sh FAQ: the score is
+  calculated from successful subtasks, weighted by difficulty) — always
+  bank a task's cheap subtasks (create the file, enable the unit) even
+  when the full task looks long; never leave a task fully untouched.
 - First pass: do everything quick and certain, flag anything that
   smells >10 min. Second pass: flagged items by points-per-minute.
 - Copy exact names/paths from the task text into the terminal

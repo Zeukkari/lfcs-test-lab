@@ -3,9 +3,10 @@
 A local Vagrant + VirtualBox lab for hands-on practice toward the
 **Linux Foundation Certified System Administrator (LFCS)** exam.
 
-The real exam lets you pick your distribution from **Ubuntu, openSUSE, or
-CentOS Stream** (any RHEL-family clone works the same way). This lab spins up
-VMs per family so you can practice the same task several different ways and
+The exam is **distribution-independent** — the pick-your-distro option was
+removed in the 2024 exam rework, and the official instructions reference only
+apt/dpkg/dnf/yum. This lab deliberately spins up VMs across three distro
+families anyway so you can practice the same task several different ways and
 stop relying on muscle memory from a single distro. There are extra `ubuntu2`
 and `rocky2` nodes for multi-node exercises (NFS/Samba client+server pairs,
 SSH trust, firewall rules between peers of the same family, etc.).
