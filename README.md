@@ -10,6 +10,13 @@ stop relying on muscle memory from a single distro. There are extra `ubuntu2`
 and `rocky2` nodes for multi-node exercises (NFS/Samba client+server pairs,
 SSH trust, firewall rules between peers of the same family, etc.).
 
+**Quick links:**
+[Study guide](docs/README.md) ·
+[Notes by domain](docs/notes/) ·
+[Exam strategy](docs/exam/strategy-and-logistics.md) ·
+[Practice resources](docs/exam/practice-resources.md) ·
+[Lab journal](docs/lab/)
+
 | Node       | Box                       | Hostname        | IP             | Family           |
 |------------|---------------------------|------------------|----------------|------------------|
 | `ubuntu`   | bento/ubuntu-22.04        | ubuntu-lfcs      | 192.168.56.11  | Debian (apt)     |
@@ -17,6 +24,15 @@ SSH trust, firewall rules between peers of the same family, etc.).
 | `rocky`    | bento/rockylinux-9        | rocky-lfcs       | 192.168.56.13  | RHEL (dnf)       |
 | `ubuntu2`  | bento/ubuntu-22.04        | ubuntu2-lfcs     | 192.168.56.14  | Debian (apt)     |
 | `rocky2`   | bento/rockylinux-9        | rocky2-lfcs      | 192.168.56.15  | RHEL (dnf)       |
+
+```mermaid
+graph LR
+  subgraph net["Private network 192.168.56.0/24 — every node also has a blank 5 GiB practice disk"]
+    ubuntu["ubuntu-lfcs · .11 · apt"] <--> ubuntu2["ubuntu2-lfcs · .14 · apt"]
+    rocky["rocky-lfcs · .13 · dnf"] <--> rocky2["rocky2-lfcs · .15 · dnf"]
+    opensuse["opensuse-lfcs · .12 · zypper"]
+  end
+```
 
 Each VM has:
 
@@ -29,6 +45,11 @@ Each VM has:
   `sysstat`, `tcpdump`, etc.).
 - A `student` user (password `student`) with passwordless sudo, separate from
   the `vagrant` management account — mirrors the exam's `sudo -i` workflow.
+
+> [!NOTE]
+> Every credential in this repo (`student:student`, example passwords like
+> `admin123` in the notes) is an intentional throwaway value for local,
+> host-only lab VMs. Nothing in this repository is a real secret.
 
 ## Requirements
 
@@ -96,7 +117,7 @@ certificate trust stores) plus the pending centralized-user-management plan.
 The lab is only half of this repo — [`docs/`](docs/) holds the study
 material, organized to follow the exam:
 
-- [`docs/study-guide.md`](docs/study-guide.md) — **start here**: exam
+- [`docs/README.md`](docs/README.md) — **start here**: exam
   facts, domain weighting, and a per-competency checklist linking every
   note below.
 - [`docs/notes/`](docs/notes/) — study notes per exam domain:
@@ -117,7 +138,7 @@ material, organized to follow the exam:
 ## Suggested practice mapped to exam domains
 
 The LFCS exam covers five domains (weights and the full competency
-checklist are in [`docs/study-guide.md`](docs/study-guide.md)). Use the
+checklist are in [`docs/README.md`](docs/README.md)). Use the
 nodes to practice the same task across apt/dnf/zypper until the
 differences stop tripping you up.
 

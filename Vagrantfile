@@ -3,8 +3,9 @@
 #
 # LFCS study lab
 # ---------------
-# Three VMs covering the three distro families you can pick from on the real
-# LFCS exam (Ubuntu, openSUSE, CentOS Stream / RHEL clones). Each node gets:
+# Five VMs covering the three distro families you can pick from on the real
+# LFCS exam (Ubuntu, openSUSE, CentOS Stream / RHEL clones), with second
+# Ubuntu/Rocky nodes for multi-node exercises. Each node gets:
 #   - a blank second disk for partitioning / filesystems / LVM / encryption practice
 #   - a static address on a private network for networking / NFS / Samba / firewall practice
 #   - the same baseline toolset installed via package manager
