@@ -45,6 +45,62 @@ Verify:
 ldapsearch -x -b "dc=lfcs,dc=lab" "uid=ldapuser1"
 ```
 
+**Faster than writing LDIF from scratch for the 2nd/3rd/4th user:** if a
+similar entry already exists, dump it as a template and edit the numbers
+instead of retyping every attribute:
+
+```bash
+ldapsearch -LLL -x -D "cn=admin,dc=lfcs,dc=lab" -w admin123 \
+  -b "uid=ldapuser1,ou=People,dc=lfcs,dc=lab" > /root/ldapuser2.ldif
+# edit dn/uid/cn/sn/uidNumber/gidNumber/homeDirectory, strip any
+# operational attributes ldapsearch included (entryUUID, createTimestamp,
+# structuralObjectClass, etc. — they're read-only and ldapadd will reject
+# them), then:
+ldapadd -x -D "cn=admin,dc=lfcs,dc=lab" -w admin123 -f /root/ldapuser2.ldif
+```
+
+## Discovering required/optional attributes for an objectClass
+
+Don't memorize which attributes `posixAccount`/`shadowAccount`/etc. need —
+ask the server's own schema. Query `cn=subschema` and read the `MUST`/`MAY`
+clauses directly off `objectClasses`:
+
+```bash
+sudo ldapsearch -o ldif-wrap=no -Y EXTERNAL -H ldapi:/// \
+  -b cn=subschema -s base objectClasses | grep "NAME 'posixAccount'"
+```
+
+```
+objectClasses: ( 1.3.6.1.1.1.2.0 NAME 'posixAccount' DESC 'Abstraction of an
+  account with POSIX attributes' SUP top AUXILIARY
+  MUST ( cn $ uid $ uidNumber $ gidNumber $ homeDirectory )
+  MAY ( userPassword $ loginShell $ gecos $ description ) )
+```
+
+`-o ldif-wrap=no` matters — without it `ldapsearch` line-wraps long entries
+LDIF-style and a `grep` on the class name only shows the first fragment.
+
+**Catch: MUST/MAY is inherited via `SUP`, not always on the class you're
+looking at.** `inetOrgPerson`'s own entry has no `MUST` clause at all —
+`sn`/`cn` being required actually comes from its ancestor `person`
+(`inetOrgPerson SUP organizationalPerson SUP person`, and `person` is
+`MUST (sn $ cn)`). If an attribute seems required but isn't listed on the
+class you queried, walk the `SUP` chain (query that class name the same
+way) before assuming it's optional.
+
+Checked live in this lab, for reference:
+
+```
+objectClasses: ( 1.3.6.1.1.1.2.1 NAME 'shadowAccount' ... SUP top AUXILIARY
+  MUST uid
+  MAY ( userPassword $ shadowLastChange $ shadowMin $ shadowMax $
+        shadowWarning $ shadowInactive $ shadowExpire $ shadowFlag $
+        description ) )
+objectClasses: ( 2.5.6.6 NAME 'person' ... SUP top STRUCTURAL
+  MUST ( sn $ cn )
+  MAY ( userPassword $ telephoneNumber $ seeAlso $ description ) )
+```
+
 ## "No such object (32)" when adding an entry
 
 `matched DN: dc=lfcs,dc=lab` means the **parent** of the DN you're
@@ -65,6 +121,18 @@ Check what actually exists under a base DN:
 ```bash
 ldapsearch -Y EXTERNAL -H ldapi:/// -b "dc=lfcs,dc=lab" -s one "(objectClass=*)" dn
 ```
+
+## Don't know the base DN
+
+Query the **root DSE** (`-b ""`, scope `base`) — it's anonymously readable
+by default and hands back the naming context without any bind at all:
+
+```bash
+ldapsearch -x -H ldap://192.168.56.12/ -s base -b "" namingContexts
+# namingContexts: dc=lfcs,dc=lab
+```
+
+Useful the moment a task gives you a server IP but not the suffix.
 
 ## Don't know / forgot the admin bind password
 
@@ -123,6 +191,32 @@ Note: `olcRootDN` (e.g. `cn=admin,dc=lfcs,dc=lab`) is a **virtual**
 admin identity recognized by the database config — it does not need to
 exist as a real directory entry for this bind to work.
 
+### No-LDAP bypass: `slapcat` / `slapadd`
+
+If you have root on the box running `slapd`, you don't strictly need any
+LDAP credentials at all — `slapcat` reads the database straight off disk,
+bypassing every ACL (including `userPassword` hashes):
+
+```bash
+sudo slapcat                      # dump the whole DIT as LDIF, read-only
+sudo slapcat -b "dc=lfcs,dc=lab"  # scope to one suffix
+```
+
+Its write-side counterpart, `slapadd`, injects entries directly into the
+database files — but **requires `slapd` to be stopped first** (it writes
+to the same files the running daemon has open, corruption risk
+otherwise):
+
+```bash
+sudo systemctl stop slapd
+sudo slapadd -b "dc=lfcs,dc=lab" -l /root/ldapuser1.ldif
+sudo systemctl start slapd
+```
+
+Prefer the `olcRootPW` reset above for anything that needs the server to
+stay up; reach for `slapadd` only when you don't mind a brief outage or
+`ldapadd`/EXTERNAL access is somehow unavailable too.
+
 ## Client side (node consuming LDAP): nslcd + nsswitch
 
 `/etc/nslcd.conf`:
@@ -171,11 +265,11 @@ recall won't transfer.
   "need `person` + `posixAccount` together" issue above — worth being
   able to explain *why*, not just pattern-match it.
 - **Schema** — defines which objectClasses/attributes exist and their
-  MUST/MAY rules. Check a schema definition:
-
-  ```bash
-  ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=config "(objectClass=olcSchemaConfig)" dn
-  ```
+  MUST/MAY rules. `ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=config
+  "(objectClass=olcSchemaConfig)" dn` lists the loaded schema files by DN;
+  to read the actual MUST/MAY clause for one objectClass, see
+  [discovering required/optional attributes](#discovering-requiredoptional-attributes-for-an-objectclass)
+  above.
 
 - **LDIF format** — the plain-text format used for all add/modify
   operations (`dn:`, `objectClass:`, `changetype:`, attribute: value
