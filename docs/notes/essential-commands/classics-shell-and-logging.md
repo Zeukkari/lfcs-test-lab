@@ -36,6 +36,50 @@ exit 0
   that works interactively but fails when scheduled almost always
   means unset PATH/vars. Set PATH inside the script or in the crontab.
 
+### Iterate over each line of a file
+
+```bash
+while IFS= read -r line; do
+    echo "got: $line"
+done < /etc/passwd
+```
+
+- `IFS=` stops leading/trailing whitespace being stripped from `$line`.
+- `-r` stops `read` eating backslashes (treats `\` literally).
+- Redirect the file **into the `while`** (`< file`, after `done`), not
+  via `cat file | while ...` — the pipe form runs the loop in a
+  subshell, so variables set inside it vanish once the loop ends.
+- Field-splitting a line as you read it: `while IFS=: read -r user _ uid
+  gid _ home shell; do ...; done < /etc/passwd` — unwanted fields go to
+  `_`, matching `/etc/passwd`'s `:`-separated columns.
+- Processing command output instead of a file: `done < <(command)`
+  (process substitution) keeps the same no-subshell property; a trailing
+  `| while read ...` pipe does not.
+
+### Arithmetic comparison
+
+```bash
+n=5
+if [ "$n" -gt 3 ]; then echo "bigger"; fi     # POSIX test: -eq -ne -gt -lt -ge -le
+if (( n > 3 )); then echo "bigger"; fi        # arithmetic context: normal < > == !=
+(( n == 5 )) && echo "equal"
+```
+
+- Inside `[ ]`/`[[ ]]` use the **named** operators (`-eq`, `-ne`,
+  `-gt`, `-ge`, `-lt`, `-le`) for numbers. `>`/`<` mean something else
+  in both: in `[ "$n" > 3 ]` the shell parses `>` as **redirection**
+  before `[` ever runs — it silently creates/truncates a file called
+  `3` and the test only checks whether `$n` is non-empty. In
+  `[[ "$n" > 3 ]]` (no escaping needed there) it's a lexicographic
+  **string** comparison, not numeric — `"10" > "9"` is false as
+  strings though true as numbers.
+- Inside `(( ))` use the **normal** C-style operators (`>` `<` `>=`
+  `<=` `==` `!=`) — no quoting of variables needed, `$n` is optional
+  inside `(( ))`.
+- `(( expr ))` exits non-zero (false) when `expr` evaluates to `0`,
+  zero (true) otherwise — opposite of what shell truthiness usually
+  "feels" like, matters when chaining with `&&`/`||`.
+
 ## Finding bash syntax in `man bash` (no internet in the exam)
 
 `man bash` is one huge page, but the syntax you forget under pressure —
