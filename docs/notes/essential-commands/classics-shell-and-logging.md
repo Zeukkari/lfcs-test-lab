@@ -36,6 +36,51 @@ exit 0
   that works interactively but fails when scheduled almost always
   means unset PATH/vars. Set PATH inside the script or in the crontab.
 
+## Finding bash syntax in `man bash` (no internet in the exam)
+
+`man bash` is one huge page, but the syntax you forget under pressure —
+loop/`if` forms, `[[ ]]` tests, `$(( ))`, `trap` — lives under a handful
+of named sections. Jump straight to them instead of scrolling:
+
+```bash
+man bash
+/^SHELL GRAMMAR          # Enter, then n/N to cycle matches
+```
+
+- **Loops and `if`/`case` syntax** — section **"Compound Commands"**
+  (inside SHELL GRAMMAR): exact grammar for `for`, `while`, `until`,
+  `if`/`elif`/`else`, `case`, `select`, `((...))`, `[[...]]`.
+  `/Compound Commands` from the top of the man page.
+- **Arithmetic (`$(( ))`, `let`, `((...))`, operators, bases)** —
+  section **"ARITHMETIC EVALUATION"**. `/^ARITHMETIC EVALUATION`.
+- **`[[ ]]`/`test`/`[` operators** (`-f`, `-z`, `-eq`, `&&`, `||`
+  inside `[[ ]]` vs needing `-a`/`-o` inside `[ ]`) — section
+  **"CONDITIONAL EXPRESSIONS"**. `/^CONDITIONAL EXPRESSIONS`.
+- **`trap` (signal names, `EXIT`/`ERR`/`DEBUG` pseudo-signals, reset
+  with `trap - SIGNAL`)** — it's a builtin, not its own heading: go to
+  **"SHELL BUILTIN COMMANDS"** then search *inside* that section,
+  since a bare `/trap` from the top also matches unrelated prose about
+  traps earlier in the page:
+
+  ```bash
+  man bash
+  /^SHELL BUILTIN COMMANDS    # Enter to jump there
+  /^       trap               # then search from that point on
+  ```
+
+- **Positional params, `$#`, `$@` vs `$*`, `${var:-default}` forms** —
+  section **"PARAMETERS"** (plain params) and **"EXPANSION"** →
+  "Parameter Expansion" subsection (the `${...}` forms).
+- **Exit status conventions** (`$?`, `&&`/`||` short-circuiting) —
+  section **"EXIT STATUS"**.
+
+General technique: `man bash`, then `/^SECTION NAME` (the `^` anchors
+to section headers so you don't match the word inside body text), `n`
+for next match. `man -P 'less -p "^ARITHMETIC EVALUATION"' bash` opens
+straight at a section in one command if typing the search after isn't
+needed. Same approach works for other man pages under time
+pressure — jump by section header, don't read linearly.
+
 ## vim speed essentials
 
 - **Trap (exam terminal):** the INSERT key is disabled in the exam UI
